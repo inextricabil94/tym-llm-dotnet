@@ -1,0 +1,44 @@
+name: .NET Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Tym.Ui/package-lock.json
+
+      - name: Restore
+        run: dotnet restore tests/Tym.Api.Tests/Tym.Api.Tests.csproj
+
+      - name: Build
+        run: dotnet build tests/Tym.Api.Tests/Tym.Api.Tests.csproj --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet run --project tests/Tym.Api.Tests/Tym.Api.Tests.csproj --configuration Release --no-build
+
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: src/Tym.Ui
+
+      - name: Build UI
+        run: npm run build
+        working-directory: src/Tym.Ui

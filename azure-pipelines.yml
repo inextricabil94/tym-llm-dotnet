@@ -1,0 +1,109 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  vmImage: ubuntu-latest
+  buildConfiguration: Release
+  dotnetSdkVersion: 8.0.x
+  nodeVersion: 24.x
+  artifactName: tym-appservice-package
+  azureServiceConnection: $(AZURE_SERVICE_CONNECTION)
+  azureWebAppName: $(AZURE_WEBAPP_NAME)
+
+stages:
+  - stage: Build
+    displayName: Build and Test
+    jobs:
+      - job: BuildAndPackage
+        displayName: Build API and UI
+        pool:
+          vmImage: $(vmImage)
+
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: Use .NET SDK $(dotnetSdkVersion)
+            inputs:
+              packageType: sdk
+              version: $(dotnetSdkVersion)
+
+          - task: NodeTool@0
+            displayName: Use Node.js $(nodeVersion)
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - script: dotnet restore tests/Tym.Api.Tests/Tym.Api.Tests.csproj
+            displayName: Restore .NET dependencies
+
+          - script: dotnet build tests/Tym.Api.Tests/Tym.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore
+            displayName: Build API and tests
+
+          - script: dotnet run --project tests/Tym.Api.Tests/Tym.Api.Tests.csproj --configuration $(buildConfiguration) --no-build
+            displayName: Run API tests
+
+          - script: npm ci
+            workingDirectory: src/Tym.Ui
+            displayName: Install UI dependencies
+
+          - script: npm run build
+            workingDirectory: src/Tym.Ui
+            displayName: Build React UI
+
+          - script: dotnet publish src/Tym.Api/Tym.Api.csproj --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/api
+            displayName: Publish API
+
+          - task: CopyFiles@2
+            displayName: Copy UI dist into API wwwroot
+            inputs:
+              SourceFolder: src/Tym.Ui/dist
+              Contents: "**"
+              TargetFolder: $(Build.ArtifactStagingDirectory)/api/wwwroot
+
+          - task: ArchiveFiles@2
+            displayName: Archive web app package
+            inputs:
+              rootFolderOrFile: $(Build.ArtifactStagingDirectory)/api
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/tym-app.zip
+              replaceExistingArchive: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish deployment artifact
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)/tym-app.zip
+              artifact: $(artifactName)
+
+  - stage: Deploy
+    displayName: Deploy to Azure App Service
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProduction
+        displayName: Deploy production
+        environment: production
+        pool:
+          vmImage: $(vmImage)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: $(artifactName)
+
+                - task: AzureWebApp@1
+                  displayName: Deploy ZIP package
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    appType: webAppLinux
+                    appName: $(azureWebAppName)
+                    package: $(Pipeline.Workspace)/$(artifactName)/tym-app.zip
+                    deploymentMethod: zipDeploy

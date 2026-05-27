@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+.vs/
+node_modules/
+dist/
+artifacts/
+*.tsbuildinfo
+*.user
+*.db
+*.db-shm
+*.db-wal
+src/Tym.Api/App_Data/
+.env
+.DS_Store
