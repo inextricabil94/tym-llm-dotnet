@@ -212,11 +212,12 @@ app.MapGet("/yard-links", async (TymDbContext db, CancellationToken cancellation
 
 app.MapGet("/media-assets", async (TymDbContext db, CancellationToken cancellationToken) =>
 {
-    var assets = await db.MediaAssets
+    var assets = await db.MediaAssets.ToListAsync(cancellationToken);
+    var orderedAssets = assets
         .OrderByDescending(a => a.CreatedAt)
-        .ToListAsync(cancellationToken);
+        .ToList();
 
-    return Results.Ok(assets.Select(MediaAssetDto.FromEntity));
+    return Results.Ok(orderedAssets.Select(MediaAssetDto.FromEntity));
 });
 
 app.MapGet("/media-assets/{assetId:guid}", async (Guid assetId, TymDbContext db, CancellationToken cancellationToken) =>
@@ -235,11 +236,14 @@ app.MapGet("/media-assets/{assetId:guid}/events", async (Guid assetId, TymDbCont
 
     var events = await db.Events
         .Where(e => e.MediaAssetId == assetId)
-        .OrderBy(e => e.MediaStartSeconds ?? 0)
-        .ThenBy(e => e.TimestampStart ?? e.CreatedAt)
         .ToListAsync(cancellationToken);
 
-    return Results.Ok(events.Select(EventDto.FromEntity));
+    var orderedEvents = events
+        .OrderBy(e => e.MediaStartSeconds ?? 0)
+        .ThenBy(e => e.TimestampStart ?? e.CreatedAt)
+        .ToList();
+
+    return Results.Ok(orderedEvents.Select(EventDto.FromEntity));
 });
 
 app.MapGet("/media-assets/{assetId:guid}/frames/{fileName}", async (

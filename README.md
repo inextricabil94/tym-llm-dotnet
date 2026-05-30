@@ -88,6 +88,22 @@ Open the Vite URL, commonly `http://127.0.0.1:5173`.
 
 The UI connects to `http://localhost:5000` by default. Change the API URL in the top-right control if your API is running on another port.
 
+## E2E tests
+
+Playwright end-to-end tests cover:
+
+- text ingest flow
+- query flow with evidence rendering
+- reset flow that clears API timeline state
+
+Run from `src/Tym.Ui`:
+
+```bash
+npm install
+npx playwright install chromium
+npm run e2e
+```
+
 ## Local deployment scripts
 
 From PowerShell at the repository root:
@@ -114,6 +130,7 @@ The pipeline:
 
 - Builds and tests the API (`tests/Tym.Api.Tests`)
 - Builds the React UI (`src/Tym.Ui`)
+- Runs Playwright E2E tests (`src/Tym.Ui/e2e`)
 - Copies UI `dist` into API `wwwroot`
 - Publishes one ZIP package
 - Deploys to Azure App Service on pushes to `main`

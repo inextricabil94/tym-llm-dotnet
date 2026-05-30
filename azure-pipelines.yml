@@ -53,9 +53,17 @@ stages:
             workingDirectory: src/Tym.Ui
             displayName: Install UI dependencies
 
+          - script: npx playwright install --with-deps chromium
+            workingDirectory: src/Tym.Ui
+            displayName: Install Playwright browser
+
           - script: npm run build
             workingDirectory: src/Tym.Ui
             displayName: Build React UI
+
+          - script: npm run e2e
+            workingDirectory: src/Tym.Ui
+            displayName: Run E2E tests
 
           - script: dotnet publish src/Tym.Api/Tym.Api.csproj --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/api
             displayName: Publish API
